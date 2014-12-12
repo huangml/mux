@@ -54,12 +54,12 @@ type Mux struct {
 	StringTrimer  TrimFunc
 	Matcher       MatchFunc
 
-	rawMux
+	raw rawMux
 }
 
 func New() *Mux {
 	return &Mux{
-		rawMux: rawMux{
+		raw: rawMux{
 			m: make(map[string]*entry),
 		},
 	}
@@ -69,7 +69,7 @@ func (m *Mux) Bind(pattern string, val interface{}) {
 	if m.PatternTrimer != nil {
 		pattern = m.PatternTrimer(pattern)
 	}
-	m.rawMux.bind(pattern, val)
+	m.raw.bind(pattern, val)
 }
 
 func (m *Mux) Match(s string) (val interface{}, pattern string) {
@@ -78,9 +78,9 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 	}
 
 	if m.Matcher != nil {
-		return m.rawMux.match(s, m.Matcher)
+		return m.raw.match(s, m.Matcher)
 	} else {
-		return m.rawMux.match(s, StrictMatch)
+		return m.raw.match(s, StrictMatch)
 	}
 }
 
@@ -144,10 +144,10 @@ func LastMatchFn(f MatchFunc) MatchFunc {
 	}
 }
 
-var PathMux = New()
-
-func init() {
-	PathMux.PatternTrimer = PathTrim
-	PathMux.StringTrimer = PathTrim
-	PathMux.Matcher = PathMatch
+func NewPathMux() *Mux {
+	m := New()
+	m.PatternTrimer = PathTrim
+	m.StringTrimer = PathTrim
+	m.Matcher = PathMatch
+	return m
 }
