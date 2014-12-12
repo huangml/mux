@@ -71,6 +71,20 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 	return
 }
 
+func (m *Mux) MatchAll(s string) (vals []interface{}, patterns []string) {
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
+
+	s = m.StringTrimer(s)
+	for p, e := range m.m {
+		if ok, _ := m.Matcher(p, s, e.index); ok {
+			vals = append(vals, e.val)
+			patterns = append(patterns, p)
+		}
+	}
+	return
+}
+
 type TrimFunc func(s string) string
 
 var NoTrim = func(s string) string {
