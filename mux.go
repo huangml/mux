@@ -1,6 +1,9 @@
 package mux
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type entry struct {
 	val   interface{}
@@ -47,9 +50,9 @@ func (m *rawMux) match(s string, f MatchFunc) (val interface{}, pattern string) 
 }
 
 type Mux struct {
-	PatternTrimFn TrimFunc
-	TrimFn        TrimFunc
-	MatchFn       MatchFunc
+	PatternTrimer TrimFunc
+	StringTrimer  TrimFunc
+	Matcher       MatchFunc
 
 	rawMux
 }
@@ -63,27 +66,27 @@ func New() *Mux {
 }
 
 func (m *Mux) Bind(pattern string, val interface{}) {
-	if m.PatternTrimFn != nil {
-		pattern = m.PatternTrimFn(pattern)
+	if m.PatternTrimer != nil {
+		pattern = m.PatternTrimer(pattern)
 	}
 	m.rawMux.bind(pattern, val)
 }
 
 func (m *Mux) Match(s string) (val interface{}, pattern string) {
-	if m.TrimFn != nil {
-		s = m.TrimFn(s)
+	if m.StringTrimer != nil {
+		s = m.StringTrimer(s)
 	}
 
-	if m.MatchFn != nil {
-		return m.rawMux.match(s, m.MatchFn)
+	if m.Matcher != nil {
+		return m.rawMux.match(s, m.Matcher)
 	} else {
-		return m.rawMux.match(s, StrictMatchFn)
+		return m.rawMux.match(s, StrictMatch)
 	}
 }
 
 type TrimFunc func(s string) string
 
-func PathTrimFn(s string) string {
+func PathTrim(s string) string {
 	if s == "" {
 		return "/"
 	}
@@ -97,25 +100,35 @@ func PathTrimFn(s string) string {
 
 type MatchFunc func(pattern, s string, index int) (ok bool, score int)
 
-func StrictMatchFn(pattern, s string, index int) (ok bool, score int) {
+func StrictMatch(pattern, s string, index int) (ok bool, score int) {
 	ok = pattern == s
 	return
 }
 
-func PathMatchFn(pattern, s string, index int) (ok bool, score int) {
+func PathMatch(pattern, s string, index int) (ok bool, score int) {
 	n := len(pattern)
 	if pattern[n-1] != '/' {
-		ok = pattern == s
+		return pattern == s, n
 	} else {
-		ok = len(s) >= n && s[:n] == pattern
+		return len(s) >= n && s[:n] == pattern, n
 	}
-
-	score = n
-
-	return
 }
 
-func FirstMatch(f MatchFunc) MatchFunc {
+func PrefixMatch(pattern, s string, index int) (ok bool, score int) {
+	return strings.HasPrefix(s, pattern), len(pattern)
+}
+
+func SuffixMatch(pattern, s string, index int) (ok bool, score int) {
+	return strings.HasSuffix(s, pattern), len(pattern)
+}
+
+func CombineTrimFn(f1, f2 TrimFunc) TrimFunc {
+	return func(s string) string {
+		return f1(f2(s))
+	}
+}
+
+func FirstMatchFn(f MatchFunc) MatchFunc {
 	return func(pattern, s string, index int) (ok bool, score int) {
 		ok, _ = f(pattern, s, index)
 		score = -index
@@ -123,7 +136,7 @@ func FirstMatch(f MatchFunc) MatchFunc {
 	}
 }
 
-func LastMatch(f MatchFunc) MatchFunc {
+func LastMatchFn(f MatchFunc) MatchFunc {
 	return func(pattern, s string, index int) (ok bool, score int) {
 		ok, _ = f(pattern, s, index)
 		score = index
@@ -134,7 +147,7 @@ func LastMatch(f MatchFunc) MatchFunc {
 var PathMux = New()
 
 func init() {
-	PathMux.PatternTrimFn = PathTrimFn
-	PathMux.TrimFn = PathTrimFn
-	PathMux.MatchFn = PathMatchFn
+	PathMux.PatternTrimer = PathTrim
+	PathMux.StringTrimer = PathTrim
+	PathMux.Matcher = PathMatch
 }
