@@ -29,7 +29,7 @@ func New() *Mux {
 	}
 }
 
-func (m *Mux) Bind(pattern string, val interface{}) {
+func (m *Mux) Map(pattern string, val interface{}) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -43,6 +43,13 @@ func (m *Mux) Bind(pattern string, val interface{}) {
 			index: len(m.m),
 		}
 	}
+}
+
+func (m *Mux) Delete(pattern string) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	delete(m.m, m.PatternTrimer(pattern))
 }
 
 func (m *Mux) Match(s string) (val interface{}, pattern string) {
