@@ -10,14 +10,30 @@ type entry struct {
 	index int
 }
 
-type rawMux struct {
-	sync.RWMutex
-	m map[string]*entry
+type Mux struct {
+	PatternTrimer TrimFunc
+	StringTrimer  TrimFunc
+	Matcher       MatchFunc
+
+	m   map[string]*entry
+	mtx sync.RWMutex
 }
 
-func (m *rawMux) bind(pattern string, val interface{}) {
-	m.Lock()
-	defer m.Unlock()
+func New() *Mux {
+	return &Mux{
+		PatternTrimer: NoTrim,
+		StringTrimer:  NoTrim,
+		Matcher:       StrictMatch,
+
+		m: make(map[string]*entry),
+	}
+}
+
+func (m *Mux) Bind(pattern string, val interface{}) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	pattern = m.PatternTrimer(pattern)
 
 	if e, ok := m.m[pattern]; ok {
 		e.val = val
@@ -29,62 +45,30 @@ func (m *rawMux) bind(pattern string, val interface{}) {
 	}
 }
 
-func (m *rawMux) match(s string, f MatchFunc) (val interface{}, pattern string) {
-	m.RLock()
-	defer m.RUnlock()
+func (m *Mux) Match(s string) (val interface{}, pattern string) {
+	m.mtx.RLock()
+	defer m.mtx.RUnlock()
 
 	var (
 		hasOK    bool
 		maxScore int
 	)
 
+	s = m.StringTrimer(s)
 	for p, e := range m.m {
-		if ok, score := f(p, s, e.index); ok {
-			if !hasOK || score > maxScore {
-				hasOK, maxScore = true, score
-				val, pattern = e.val, p
-			}
+		if ok, score := m.Matcher(p, s, e.index); ok && (!hasOK || score > maxScore) {
+			hasOK, maxScore = true, score
+			val, pattern = e.val, p
 		}
 	}
 	return
 }
 
-type Mux struct {
-	PatternTrimer TrimFunc
-	StringTrimer  TrimFunc
-	Matcher       MatchFunc
-
-	raw rawMux
-}
-
-func New() *Mux {
-	return &Mux{
-		raw: rawMux{
-			m: make(map[string]*entry),
-		},
-	}
-}
-
-func (m *Mux) Bind(pattern string, val interface{}) {
-	if m.PatternTrimer != nil {
-		pattern = m.PatternTrimer(pattern)
-	}
-	m.raw.bind(pattern, val)
-}
-
-func (m *Mux) Match(s string) (val interface{}, pattern string) {
-	if m.StringTrimer != nil {
-		s = m.StringTrimer(s)
-	}
-
-	if m.Matcher != nil {
-		return m.raw.match(s, m.Matcher)
-	} else {
-		return m.raw.match(s, StrictMatch)
-	}
-}
-
 type TrimFunc func(s string) string
+
+func NoTrim(s string) string {
+	return s
+}
 
 func PathTrim(s string) string {
 	if s == "" {
