@@ -66,11 +66,11 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 
 type TrimFunc func(s string) string
 
-func NoTrim(s string) string {
+var NoTrim = func(s string) string {
 	return s
 }
 
-func PathTrim(s string) string {
+var PathTrim = func(s string) string {
 	if s == "" {
 		return "/"
 	}
@@ -84,12 +84,12 @@ func PathTrim(s string) string {
 
 type MatchFunc func(pattern, s string, index int) (ok bool, score int)
 
-func StrictMatch(pattern, s string, index int) (ok bool, score int) {
+var StrictMatch = func(pattern, s string, index int) (ok bool, score int) {
 	ok = pattern == s
 	return
 }
 
-func PathMatch(pattern, s string, index int) (ok bool, score int) {
+var PathMatch = func(pattern, s string, index int) (ok bool, score int) {
 	n := len(pattern)
 	if pattern[n-1] != '/' {
 		return pattern == s, n
@@ -98,11 +98,11 @@ func PathMatch(pattern, s string, index int) (ok bool, score int) {
 	}
 }
 
-func PrefixMatch(pattern, s string, index int) (ok bool, score int) {
+var PrefixMatch = func(pattern, s string, index int) (ok bool, score int) {
 	return strings.HasPrefix(s, pattern), len(pattern)
 }
 
-func SuffixMatch(pattern, s string, index int) (ok bool, score int) {
+var SuffixMatch = func(pattern, s string, index int) (ok bool, score int) {
 	return strings.HasSuffix(s, pattern), len(pattern)
 }
 
