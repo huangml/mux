@@ -144,6 +144,22 @@ func LastMatchFn(f MatchFunc) MatchFunc {
 	}
 }
 
+func ShortestPatternMatchFn(f MatchFunc) MatchFunc {
+	return func(pattern, s string, index int) (ok bool, score int) {
+		ok, _ = f(pattern, s, index)
+		score = -len(pattern)
+		return
+	}
+}
+
+func LongestPatternMatchFn(f MatchFunc) MatchFunc {
+	return func(pattern, s string, index int) (ok bool, score int) {
+		ok, _ = f(pattern, s, index)
+		score = len(pattern)
+		return
+	}
+}
+
 func NewPathMux() *Mux {
 	m := New()
 	m.PatternTrimer = PathTrim
