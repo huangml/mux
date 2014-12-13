@@ -11,31 +11,61 @@ type entry struct {
 	index int
 }
 
+type Config struct {
+	TrimPattern TrimFunc
+	TrimString  TrimFunc
+	Matcher     MatchFunc
+}
+
 type Mux struct {
-	PatternTrimmer TrimFunc
-	StringTrimmer  TrimFunc
-	Matcher        MatchFunc
+	trimPattern TrimFunc
+	trimString  TrimFunc
+	matcher     MatchFunc
 
 	m     map[string]*entry
 	mtx   sync.RWMutex
 	index int
 }
 
-func New() *Mux {
+func New(c Config) *Mux {
+	if c.TrimPattern == nil {
+		c.TrimPattern = NoTrim
+	}
+	if c.TrimString == nil {
+		c.TrimString = NoTrim
+	}
+	if c.Matcher == nil {
+		c.Matcher = StrictMatch
+	}
+
 	return &Mux{
-		PatternTrimmer: NoTrim,
-		StringTrimmer:  NoTrim,
-		Matcher:        StrictMatch,
+		trimPattern: c.TrimPattern,
+		trimString:  c.TrimString,
+		matcher:     c.Matcher,
 
 		m: make(map[string]*entry),
 	}
+}
+
+func (m *Mux) SetTrimString(f TrimFunc) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	m.trimString = f
+}
+
+func (m *Mux) SetMatcher(f MatchFunc) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	m.matcher = f
 }
 
 func (m *Mux) Map(pattern string, val interface{}) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	pattern = m.PatternTrimmer(pattern)
+	pattern = m.trimPattern(pattern)
 
 	if e, ok := m.m[pattern]; ok {
 		e.val = val
@@ -52,7 +82,7 @@ func (m *Mux) Delete(pattern string) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	delete(m.m, m.PatternTrimmer(pattern))
+	delete(m.m, m.trimPattern(pattern))
 }
 
 func (m *Mux) Match(s string) (val interface{}, pattern string) {
@@ -64,9 +94,9 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 		maxScore int
 	)
 
-	s = m.StringTrimmer(s)
+	s = m.trimString(s)
 	for p, e := range m.m {
-		if ok, score := m.Matcher(p, s, e.index); ok && (!hasOK || score > maxScore) {
+		if ok, score := m.matcher(p, s, e.index); ok && (!hasOK || score > maxScore) {
 			hasOK, maxScore = true, score
 			val, pattern = e.val, p
 		}
@@ -78,9 +108,9 @@ func (m *Mux) MatchAll(s string) (vals []interface{}, patterns []string) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
-	s = m.StringTrimmer(s)
+	s = m.trimString(s)
 	for p, e := range m.m {
-		if ok, _ := m.Matcher(p, s, e.index); ok {
+		if ok, _ := m.matcher(p, s, e.index); ok {
 			vals = append(vals, e.val)
 			patterns = append(patterns, p)
 		}
@@ -172,10 +202,14 @@ func LongestPatternMatchFn(f MatchFunc) MatchFunc {
 	}
 }
 
+func NewStrictMux() *Mux {
+	return New(Config{})
+}
+
 func NewPathMux() *Mux {
-	m := New()
-	m.PatternTrimmer = PathTrim
-	m.StringTrimmer = PathTrim
-	m.Matcher = PathMatch
-	return m
+	return New(Config{
+		TrimPattern: PathTrim,
+		TrimString:  PathTrim,
+		Matcher:     PathMatch,
+	})
 }
