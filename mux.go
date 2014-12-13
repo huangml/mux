@@ -27,27 +27,7 @@ type Mux struct {
 	index int
 }
 
-func New(c Config) *Mux {
-	if c.TrimPattern == nil {
-		c.TrimPattern = NoTrim
-	}
-	if c.TrimString == nil {
-		c.TrimString = NoTrim
-	}
-	if c.Matcher == nil {
-		c.Matcher = StrictMatch
-	}
-
-	return &Mux{
-		trimPattern: c.TrimPattern,
-		trimString:  c.TrimString,
-		matcher:     c.Matcher,
-
-		m: make(map[string]*entry),
-	}
-}
-
-func (m *Mux) SetTrimString(f TrimFunc) {
+func (m *Mux) SetStringTrimmer(f TrimFunc) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
@@ -85,15 +65,21 @@ func (m *Mux) Delete(pattern string) {
 	delete(m.m, m.trimPattern(pattern))
 }
 
-func (m *Mux) Match(s string) (val interface{}, pattern string) {
+func (m *Mux) Match(s string) (val interface{}) {
+	val, _, _ = m.MatchWithPatternScore(s)
+	return
+}
+
+func (m *Mux) MatchWithPattern(s string) (val interface{}, pattern string) {
+	val, pattern, _ = m.MatchWithPatternScore(s)
+	return
+}
+
+func (m *Mux) MatchWithPatternScore(s string) (val interface{}, pattern string, maxScore int) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
-	var (
-		hasOK    bool
-		maxScore int
-	)
-
+	hasOK := false
 	s = m.trimString(s)
 	for p, e := range m.m {
 		if ok, score := m.matcher(p, s, e.index); ok && (!hasOK || score > maxScore) {
@@ -104,15 +90,26 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 	return
 }
 
-func (m *Mux) MatchAll(s string) (vals []interface{}, patterns []string) {
+func (m *Mux) MatchAll(s string) (vals []interface{}) {
+	vals, _, _ = m.MatchAllWithPatternScore(s)
+	return
+}
+
+func (m *Mux) MatchAllWithPattern(s string) (vals []interface{}, patterns []string) {
+	vals, patterns, _ = m.MatchAllWithPatternScore(s)
+	return
+}
+
+func (m *Mux) MatchAllWithPatternScore(s string) (vals []interface{}, patterns []string, scores []int) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
 	s = m.trimString(s)
 	for p, e := range m.m {
-		if ok, _ := m.matcher(p, s, e.index); ok {
+		if ok, score := m.matcher(p, s, e.index); ok {
 			vals = append(vals, e.val)
 			patterns = append(patterns, p)
+			scores = append(scores, score)
 		}
 	}
 	return
@@ -199,6 +196,26 @@ func LongestPatternMatchFn(f MatchFunc) MatchFunc {
 		ok, _ = f(pattern, s, index)
 		score = len(pattern)
 		return
+	}
+}
+
+func New(c Config) *Mux {
+	if c.TrimPattern == nil {
+		c.TrimPattern = NoTrim
+	}
+	if c.TrimString == nil {
+		c.TrimString = NoTrim
+	}
+	if c.Matcher == nil {
+		c.Matcher = StrictMatch
+	}
+
+	return &Mux{
+		trimPattern: c.TrimPattern,
+		trimString:  c.TrimString,
+		matcher:     c.Matcher,
+
+		m: make(map[string]*entry),
 	}
 }
 
