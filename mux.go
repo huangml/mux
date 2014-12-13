@@ -1,6 +1,7 @@
 package mux
 
 import (
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -127,6 +128,10 @@ var PrefixMatch = func(pattern, s string, index int) (ok bool, score int) {
 
 var SuffixMatch = func(pattern, s string, index int) (ok bool, score int) {
 	return strings.HasSuffix(s, pattern), len(pattern)
+}
+
+var RegexMatch = func(pattern, s string, index int) (ok bool, score int) {
+	return regexp.MustCompile(pattern).MatchString(s), index
 }
 
 func CombineTrimFn(f1, f2 TrimFunc) TrimFunc {
