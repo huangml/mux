@@ -12,9 +12,9 @@ type entry struct {
 }
 
 type Mux struct {
-	PatternTrimer TrimFunc
-	StringTrimer  TrimFunc
-	Matcher       MatchFunc
+	PatternTrimmer TrimFunc
+	StringTrimmer  TrimFunc
+	Matcher        MatchFunc
 
 	m     map[string]*entry
 	mtx   sync.RWMutex
@@ -23,9 +23,9 @@ type Mux struct {
 
 func New() *Mux {
 	return &Mux{
-		PatternTrimer: NoTrim,
-		StringTrimer:  NoTrim,
-		Matcher:       StrictMatch,
+		PatternTrimmer: NoTrim,
+		StringTrimmer:  NoTrim,
+		Matcher:        StrictMatch,
 
 		m: make(map[string]*entry),
 	}
@@ -35,7 +35,7 @@ func (m *Mux) Map(pattern string, val interface{}) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	pattern = m.PatternTrimer(pattern)
+	pattern = m.PatternTrimmer(pattern)
 
 	if e, ok := m.m[pattern]; ok {
 		e.val = val
@@ -52,7 +52,7 @@ func (m *Mux) Delete(pattern string) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	delete(m.m, m.PatternTrimer(pattern))
+	delete(m.m, m.PatternTrimmer(pattern))
 }
 
 func (m *Mux) Match(s string) (val interface{}, pattern string) {
@@ -64,7 +64,7 @@ func (m *Mux) Match(s string) (val interface{}, pattern string) {
 		maxScore int
 	)
 
-	s = m.StringTrimer(s)
+	s = m.StringTrimmer(s)
 	for p, e := range m.m {
 		if ok, score := m.Matcher(p, s, e.index); ok && (!hasOK || score > maxScore) {
 			hasOK, maxScore = true, score
@@ -78,7 +78,7 @@ func (m *Mux) MatchAll(s string) (vals []interface{}, patterns []string) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
 
-	s = m.StringTrimer(s)
+	s = m.StringTrimmer(s)
 	for p, e := range m.m {
 		if ok, _ := m.Matcher(p, s, e.index); ok {
 			vals = append(vals, e.val)
@@ -174,8 +174,8 @@ func LongestPatternMatchFn(f MatchFunc) MatchFunc {
 
 func NewPathMux() *Mux {
 	m := New()
-	m.PatternTrimer = PathTrim
-	m.StringTrimer = PathTrim
+	m.PatternTrimmer = PathTrim
+	m.StringTrimmer = PathTrim
 	m.Matcher = PathMatch
 	return m
 }
