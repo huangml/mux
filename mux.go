@@ -15,8 +15,9 @@ type Mux struct {
 	StringTrimer  TrimFunc
 	Matcher       MatchFunc
 
-	m   map[string]*entry
-	mtx sync.RWMutex
+	m     map[string]*entry
+	mtx   sync.RWMutex
+	index int
 }
 
 func New() *Mux {
@@ -38,9 +39,10 @@ func (m *Mux) Map(pattern string, val interface{}) {
 	if e, ok := m.m[pattern]; ok {
 		e.val = val
 	} else {
+		m.index++
 		m.m[pattern] = &entry{
 			val:   val,
-			index: len(m.m),
+			index: m.index,
 		}
 	}
 }
