@@ -1,3 +1,4 @@
+// Package mux implements a multiplexer by string matching, in various ways.
 package mux
 
 import (
@@ -63,6 +64,13 @@ func (m *Mux) Delete(pattern string) {
 	defer m.mtx.Unlock()
 
 	delete(m.m, m.trimPattern(pattern))
+}
+
+func (m *Mux) Clear() {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
+	m.m = make(map[string]*entry)
 }
 
 func (m *Mux) Match(s string) (val interface{}) {
